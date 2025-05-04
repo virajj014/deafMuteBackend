@@ -54,6 +54,7 @@ def preprocess_image(image_bytes: bytes) -> np.ndarray:
 
 @app.post("/predict", response_model=List[str])
 async def predict(files: List[UploadFile] = File(...)):
+    print("PREDICTION STARTED")
     """Endpoint that accepts multiple images and returns predictions"""
     try:
         start_time = datetime.now()
