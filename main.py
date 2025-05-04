@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import numpy as np
 import cv2
@@ -8,6 +8,8 @@ import io
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+import asyncio
+import httpx
 
 load_dotenv()
 app = FastAPI(title="Sign Language Classifier API")
@@ -24,6 +26,26 @@ except Exception as e:
     raise RuntimeError(f"Failed to load model or classes: {str(e)}")
 
 print(f"Model loaded with {len(class_names)} classes: {list(class_names)}")
+
+# Keep-alive variables
+KEEP_ALIVE_INTERVAL = 30  # Ping every 30 seconds
+RENDER_SERVICE_URL = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
+
+async def keep_alive_ping():
+    """Background task to ping the /health endpoint periodically"""
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                response = await client.get(f"{RENDER_SERVICE_URL}/health")
+                print(f"Keep-alive ping successful: {response.status_code}")
+            except Exception as e:
+                print(f"Keep-alive ping failed: {str(e)}")
+            await asyncio.sleep(KEEP_ALIVE_INTERVAL)
+
+@app.on_event("startup")
+async def startup_event():
+    """Start keep-alive task when the app starts"""
+    asyncio.create_task(keep_alive_ping())
 
 def preprocess_image(image_bytes: bytes) -> np.ndarray:
     """Resize image from center and preprocess for model prediction"""
@@ -86,8 +108,13 @@ async def predict(files: List[UploadFile] = File(...)):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "model_loaded": True, "classes": list(class_names)}
+    """Health check endpoint (also used for keep-alive)"""
+    return {
+        "status": "healthy",
+        "model_loaded": True,
+        "classes": list(class_names),
+        "keep_alive": "active"
+    }
 
 if __name__ == "__main__":
     import uvicorn
