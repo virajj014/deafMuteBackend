@@ -7,7 +7,9 @@ from typing import List
 import io
 import os
 from datetime import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI(title="Sign Language Classifier API")
 
 # Load your trained model and class mappings
@@ -88,4 +90,6 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Get port from environment variable or default to 8000
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
